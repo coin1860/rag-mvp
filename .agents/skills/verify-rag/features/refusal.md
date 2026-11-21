@@ -1,7 +1,7 @@
 # Refuse when the corpus does not answer
 
 ## Sub-features
-- coarse score screen at `RAG_MIN_SCORE` (default 0.40), refuses without calling the model
+- coarse score screen at `RAG_MIN_SCORE` (default 0.50), refuses without calling the model
 - model sentinel `NO_CONTEXT`, refuses when the retrieved material is insufficient
 - `refused: true` responses carry `sources: []`
 

@@ -19,4 +19,4 @@ Expected shape: `sources` non-empty, every `path` ending in `退款政策.md`,
   `1 <= n <= len(sources)`, never `n == 1`.
 - A cross-lingual English question returns `top_score` near 0.48, far lower than
   Chinese ones. Do not read a low score as "retrieval broken" without checking
-  that the right document still ranks in the top 4.
+  that the right document still ranks in the top 6 (`RAG_TOP_K`).

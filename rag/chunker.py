@@ -58,6 +58,20 @@ def _blocks(text: str) -> list[Block]:
     return blocks
 
 
+def _sentence_cut(para: str, max_chars: int) -> int:
+    """Where to cut: prefer a Chinese full stop, then an English sentence end.
+
+    Only accept a boundary in the second half, so a window never degenerates
+    into tiny pieces; otherwise cut at the limit.
+    """
+    floor = max_chars // 2
+    for marker, width in (("。", 1), (". ", 2)):
+        at = para.rfind(marker, 0, max_chars)
+        if at > floor:
+            return at + width
+    return max_chars
+
+
 def _windows(body: str, max_chars: int, overlap: int) -> list[str]:
     """Hard-wrap one block, preferring paragraph then sentence boundaries."""
     body = body.strip()
@@ -75,11 +89,7 @@ def _windows(body: str, max_chars: int, overlap: int) -> list[str]:
             pieces.append(current)
         current = ""
         while len(para) > max_chars:
-            cut = para.rfind("。", 0, max_chars)
-            cut = cut + 1 if cut > max_chars // 2 else para.rfind(". ", 0, max_chars)
-            cut = cut + 2 if cut > max_chars // 2 and not para[:cut].endswith("。") else cut
-            if cut <= max_chars // 2:
-                cut = max_chars
+            cut = _sentence_cut(para, max_chars)
             pieces.append(para[:cut].strip())
             para = para[max(0, cut - overlap) :].strip()
         current = para

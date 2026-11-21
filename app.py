@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import html
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -83,68 +84,29 @@ def health(deep: int = 0) -> dict:
 
     `?deep=1` runs the one-call gateway probe, for a single explicit check.
     """
-    store = get_store()
+    rag = get_rag()
+    store = rag.store
     if deep:
-        ok, detail = get_rag().llm.reachable()
+        ok, detail = rag.llm.reachable()
         gateway = {"ok": ok, "detail": detail}
     else:
         gateway = {"ok": None, "detail": "not probed (pass ?deep=1)"}
+    embedder = rag.embedder
     return {
         "ready": store.size > 0,
         "chunks": store.size,
         "documents": store.documents(),
         "gateway": gateway,
+        # "is the model ready" must answer for the embedding model too, not just
+        # name the generation model. Loading it here would make /health expensive,
+        # so report whether it is already loaded and its width once it is.
+        "embedder": {
+            "model": embedder.model_name,
+            "loaded": embedder.loaded,
+            "dim": embedder.dim if embedder.loaded else store.dim,
+        },
         "model": settings.model,
     }
 
 
-PAGE = """<!doctype html>
-<html lang="zh">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>本地 RAG</title>
-<style>
-  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
-  textarea { width: 100%; box-sizing: border-box; min-height: 4rem; font-size: 1rem; }
-  button { margin-top: .5rem; font-size: 1rem; padding: .4rem 1.2rem; }
-  #result { margin-top: 1.5rem; }
-  .card { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-  .card.refused { border-color: #c77; background: #fff7f5; }
-  .src { font-size: .85rem; color: #555; margin-top: .6rem; border-top: 1px dashed #ddd; padding-top: .6rem; }
-  .err { color: #b00; }
-</style>
-</head>
-<body>
-<h1>本地 RAG 知识库</h1>
-<textarea id="q" placeholder="输入问题，例如：退款多久到账？"></textarea>
-<button id="ask">提问</button>
-<div id="result"></div>
-<script>
-const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-document.getElementById('ask').onclick = async () => {
-  const area = document.getElementById('result');
-  area.innerHTML = '<p>思考中…</p>';
-  try {
-    const resp = await fetch('/ask', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({question: document.getElementById('q').value}),
-    });
-    const data = await resp.json();
-    if (!resp.ok) { area.innerHTML = '<p class="err">错误 ' + resp.status + ': ' + esc(data.detail || '') + '</p>'; return; }
-    const cls = data.refused ? 'card refused' : 'card';
-    const srcs = data.sources.map(s =>
-      '<p>[' + s.n + '] ' + esc(s.path) + (s.heading ? ' #' + esc(s.heading) : '') +
-      ' — score ' + s.score.toFixed(3) + '<br>' + esc(s.snippet) + '</p>').join('');
-    area.innerHTML =
-      '<div class="' + cls + '"><strong>' + (data.refused ? '已拒绝' : '回答') +
-      ' (top_score ' + data.top_score.toFixed(3) + ')</strong><p>' + esc(data.answer) + '</p>' +
-      (srcs ? '<div class="src"><strong>来源：</strong>' + srcs + '</div>' : '') + '</div>';
-  } catch (e) {
-    area.innerHTML = '<p class="err">请求失败: ' + esc(String(e)) + '</p>';
-  }
-};
-</script>
-</body>
-</html>"""
+PAGE = (Path(__file__).resolve().parent / "web" / "index.html").read_text(encoding="utf-8")

@@ -88,3 +88,27 @@
 | 阈值缺少数据 | 见修订 1 标定表，重测后 `min_score` 0.40→0.50，`top_k` 4→6 | 由实测决定 |
 
 **已知限制（不在 MVP 内解决，见 TICKETS T8）**：跨语言术语鸿沟。中文问「团队版有没有单点登录」，`pricing.md` 写的是 `single sign-on`，答案块排 **10/22**，`top_k=6` 取不到 → 模型只能拒答。解法是多语言 embedder（`bge-m3`，1024 维）或混合字面检索，不是调大 `top_k`（那等于把一半语料塞进 prompt）。
+
+---
+
+## 修订 3（双轴 code review 之后）
+
+`/skill:code-review` 两轴（Standards + Spec）各报 6 条，逐条处置：
+
+| 轴 | 发现 | 处置 |
+|---|---|---|
+| Standards | `doc_hash` 声明 NOT NULL 却永远写 `""` | 真算：`sha256(文件内容)[:12]`，为将来的增量索引准备 |
+| Standards | `Rag.__init__` 四个 `x if x is not None else settings.x` 样板 + 参数簇 | 只留 `top_k`/`min_score` 可注入，块大小回 `Settings` |
+| Standards | `PAGE` 内嵌在 `app.py`，改前端与改路由同文件 | 移到 `web/index.html` |
+| Standards | `sources` 与 `hits` 靠 `n-1` 下标算术重连 | prompt 直接从 `hits` 生成 |
+| Standards | `chunker` 里两次链式三元重赋值 `cut` | 抽 `_sentence_cut(para, max_chars)`，不变量写进 docstring |
+| Standards | `Embedder.dim` 是 property、`Store.dim()` 是方法 | 统一为 property |
+| Spec | `/health` 的"模型是否就绪"用索引块数代理 | 新增 `embedder: {model, loaded, dim}`，且不触发加载 |
+| Spec | `doc_hash` 从未被计算 | 同上（两轴独立命中同一处） |
+| Spec | `embedder.py` 模块 docstring 声称加查询前缀，代码是 `""` | docstring 改成代码事实 |
+| Spec | verify skill 写 `0.40` / `top 4`，出厂是 `0.50` / `6` | 同步，并补上 `doc_hash` 说明 |
+
+**保留的超范围项（review 判为 scope creep，判定为有意为之，记录在此）**：
+- `.github/workflows/ci.yml` —— 只跑单测，不需要网关；不引入外部依赖
+- `.agents/skills/verify-rag/` —— SPEC 只要求 `scripts/verify.py`，但 agent 读的是 skill，脚本是它的执行体，两者配套才有用
+- `?deep=1`、`/reindex` 的 `seconds`/`paths`、source 的 `score`/`n` —— 调试与证据所需，成本为零

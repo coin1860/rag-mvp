@@ -47,7 +47,7 @@ def test_dimension_mismatch_raises_valueerror(tmp_path):
 def test_reset_empties_the_store(tmp_path):
     s = _store(tmp_path)
     assert s.size == 3
-    assert s.dim() == DIM
+    assert s.dim == DIM
     s.reset()
     assert s.size == 0
     assert s.documents() == []

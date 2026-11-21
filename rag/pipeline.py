@@ -66,16 +66,14 @@ class Rag:
         llm: LLM | None = None,
         top_k: int | None = None,
         min_score: float | None = None,
-        max_chars: int | None = None,
-        overlap: int | None = None,
     ) -> None:
         self.store = store or Store(settings.db_path)
         self.embedder = embedder or Embedder(settings.embed_model)
         self.llm = llm or LLM(settings.base_url, settings.api_key, settings.model, settings.timeout)
-        self.top_k = top_k if top_k is not None else settings.top_k
-        self.min_score = min_score if min_score is not None else settings.min_score
-        self.max_chars = max_chars if max_chars is not None else settings.max_chars
-        self.overlap = overlap if overlap is not None else settings.overlap
+        # Only the two knobs a caller ever overrides are injectable; chunk sizing
+        # stays in Settings so it travels with the rest of the retrieval config.
+        self.top_k = settings.top_k if top_k is None else top_k
+        self.min_score = settings.min_score if min_score is None else min_score
 
     # -- index ----------------------------------------------------------
     def index_documents(self, docs_dir: Path | None = None) -> IndexStats:
@@ -88,13 +86,15 @@ class Rag:
         texts: list[str] = []
         for path in files:
             raw = path.read_text(encoding="utf-8")
-            for chunk in chunk_markdown(raw, max_chars=self.max_chars, overlap=self.overlap):
+            doc_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
+            for chunk in chunk_markdown(raw, max_chars=settings.max_chars, overlap=settings.overlap):
                 rows.append(
                     Row(
                         id=len(rows) + 1,
                         doc_path=str(path.relative_to(docs_dir)),
                         heading=chunk.heading,
                         text=chunk.text,
+                        doc_hash=doc_hash,
                     )
                 )
                 # The heading carries retrieval signal ("团队版 > 单点登录") that
@@ -141,8 +141,8 @@ class Rag:
         # the UI. Truncating the evidence silently deleted the sentence that
         # answered the question: the Team SSO fact sits past char 180.
         material = "\n\n".join(
-            f"[{s.n}] {s.path}" + (f"#{s.heading}" if s.heading else "") + f"\n{hits[s.n - 1].text}"
-            for s in sources
+            f"[{n}] {h.doc_path}" + (f"#{h.heading}" if h.heading else "") + f"\n{h.text}"
+            for n, h in enumerate(hits, start=1)
         )
         text = self.llm.chat(
             [

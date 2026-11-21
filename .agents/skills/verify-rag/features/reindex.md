@@ -9,7 +9,8 @@ Drop a markdown file into `docs/`, then POST `/reindex`. There is no watcher.
 
 ## Driving it with scripts/verify.py
 `drive: POST /reindex 200` followed by `drive: index non-empty after reindex`
-(`documents=8 chunks=22` on the seed corpus). The second check exists because a
+(`documents=8 chunks=22` on the seed corpus); each row also carries a
+`doc_hash` (sha256 of the file) so a later incremental index can skip unchanged files.. The second check exists because a
 200 with `chunks=0` means every later Ask check is testing an empty index.
 
 ## Gotchas

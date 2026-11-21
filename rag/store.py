@@ -34,6 +34,9 @@ class Row:
     doc_path: str
     heading: str
     text: str
+    # Content hash of the source document, so a later incremental index can skip
+    # unchanged files. Defaulted for tests that only care about the passage.
+    doc_hash: str = ""
 
 
 @dataclass(frozen=True)
@@ -71,7 +74,7 @@ class Store:
                 "INSERT INTO chunks (doc_path, doc_hash, heading, ord, text, vec)"
                 " VALUES (?,?,?,?,?,?)",
                 [
-                    (r.doc_path, "", r.heading, i, r.text, vecs[i].astype(np.float32).tobytes())
+                    (r.doc_path, r.doc_hash, r.heading, i, r.text, vecs[i].astype(np.float32).tobytes())
                     for i, r in enumerate(rows)
                 ],
             )
@@ -105,7 +108,9 @@ class Store:
             cur = self._conn.execute("SELECT DISTINCT doc_path FROM chunks ORDER BY doc_path")
             return [r[0] for r in cur]
 
+    @property
     def dim(self) -> int | None:
+        """Vector width, matching `Embedder.dim` as a property for the same concept."""
         self._load()
         return None if self._matrix is None or self._matrix.size == 0 else int(self._matrix.shape[1])
 

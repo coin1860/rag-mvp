@@ -1,8 +1,9 @@
 """Local embedding model: fastembed (ONNX, CPU, no API key).
 
-Documents are embedded as-is; queries get the bge Chinese instruction prefix,
-which the model was trained with. Getting this backwards silently degrades
-recall, so both paths go through this class and nowhere else.
+Documents and queries are embedded the same way: no instruction prefix. bge-zh
+documents one for queries, but it was ablated here and lowered every score
+(see QUERY_PREFIX), so both paths are symmetric. Both go through this class so
+the choice cannot drift between indexing and querying.
 """
 
 from __future__ import annotations
@@ -28,6 +29,10 @@ class Embedder:
 
             self._model = TextEmbedding(model_name=self.model_name)
         return self._model
+
+    @property
+    def loaded(self) -> bool:
+        return self._model is not None
 
     @property
     def dim(self) -> int:
