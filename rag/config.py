@@ -30,7 +30,7 @@ _load_env(ROOT / ".env")
 @dataclass(frozen=True)
 class Settings:
     # generation: the agent2api gateway (OpenAI compatible)
-    base_url: str = os.environ.get("RAG_BASE_URL", "http://192.168.2.4:3065/v1")
+    base_url: str = os.environ.get("RAG_BASE_URL", "http://localhost:8080/v1")
     api_key: str = os.environ.get("RAG_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
     model: str = os.environ.get("RAG_MODEL", "deepseek-v4.1-flash")
 
