@@ -83,6 +83,15 @@ def main() -> int:
         gateway = probe.json().get("gateway", {})
         check("doctor: gateway reachable", bool(gateway.get("ok")), str(gateway.get("detail"))[:200])
 
+        # The page must be served as HTML: returning a str from a FastAPI route
+        # yields application/json and the browser renders the source text, which
+        # no status-code check can catch.
+        page = httpx.get(f"{base}/", timeout=30)
+        ctype = page.headers.get("content-type", "")
+        check("page: served as text/html", ctype.startswith("text/html"), ctype)
+        check("page: not JSON-wrapped", not page.text.lstrip().startswith('"<'), page.text[:40])
+        check("page: has the ask handler", "fetch('/ask'" in page.text, "")
+
         # Phase 3: drive.
         reindex = httpx.post(f"{base}/reindex", timeout=300)
         check("drive: POST /reindex 200", reindex.status_code == 200, reindex.text[:300])

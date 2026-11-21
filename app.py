@@ -10,6 +10,7 @@ import html
 from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from rag.config import settings
@@ -35,9 +36,11 @@ class AskBody(BaseModel):
     question: str
 
 
-@app.get("/")
-def index() -> str:
-    return PAGE
+@app.get("/", response_class=HTMLResponse)
+def index() -> HTMLResponse:
+    # Returning a bare str makes FastAPI emit application/json and the browser
+    # shows the source text. The response class is part of the contract.
+    return HTMLResponse(PAGE)
 
 
 @app.post("/ask")

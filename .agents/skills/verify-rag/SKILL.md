@@ -56,9 +56,11 @@ humans should use.
 PYTHONPATH=. .venv/bin/python scripts/verify.py     # exits 0 only if every check passes
 ```
 
-The page at `GET /` posts to the same `/ask`; drive it only when the change is in
-the HTML/JS itself, and read the answer card plus the source list, not just the
-absence of a console error.
+Always check the page, even when the change is not front-end: `GET /` must
+return `content-type: text/html`. **A route that returns a bare `str` in FastAPI
+emits `application/json`**, and the browser then displays the source text while
+every status-code check still passes. This shipped once. Then drive one question
+through the textarea and read the rendered card, not the console.
 
 ## Evidence
 
@@ -93,6 +95,8 @@ launch failed. If you launched by hand, `kill <pid>` that pid. Leave
   English one at 0.483. That is why refusal is two-stage — see `SPEC.md` 修订 1.
   Do not "tighten the threshold" to fix a refusal bug without re-measuring both
   groups; you will break the other side.
+- Reading the page's HTML with `TestClient` cannot tell you whether a browser
+  renders it. Check the header, then look at it.
 - A hand-run launch strands a process when a later step fails: wrap the whole
   sequence in `trap 'kill $PID' EXIT` or just run `scripts/verify.py`, which does
   that in a `finally`. This was observed while proving this skill, not theorised.
