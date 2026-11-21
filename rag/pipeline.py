@@ -17,11 +17,17 @@ from .embedder import Embedder
 from .llm import LLM
 from .store import Row, Store
 
+NO_CONTEXT = "NO_CONTEXT"
+
+# Cosine similarity ranks, it does not adjudicate: measured on this corpus, an
+# unanswerable question ("如何给 PDF 加密") scored 0.523 above an answerable
+# English one (0.483). So the score gate only catches the obvious misses, and
+# the model makes the final call by emitting a sentinel instead of an answer.
 SYSTEM = (
     "你是一个只依据给定材料回答问题的助手。规则：\n"
     "1. 只能用材料里出现的信息，不许补充常识或推测。\n"
     "2. 每个结论后面标注来源编号，如 [1]；允许多个来源 [1][2]。\n"
-    "3. 材料里没有答案时，直接回答「知识库里没有相关内容」，不要编造。\n"
+    f"3. 如果材料不足以回答问题（哪怕只沾到边），只输出 {NO_CONTEXT} 这一个词，不要输出任何解释。\n"
     "4. 用中文回答，简洁，不超过 120 字。"
 )
 
@@ -134,4 +140,6 @@ class Rag:
                 {"role": "user", "content": f"材料：\n{material}\n\n问题：{question}"},
             ]
         )
+        if NO_CONTEXT in text:
+            return Answer("知识库里没有相关内容（检索到的材料不足以回答这个问题）。", [], True, top)
         return Answer(text, sources, False, top)

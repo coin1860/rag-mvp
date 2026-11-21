@@ -66,7 +66,7 @@ class Store:
             " VALUES (?,?,?,?,?,?)",
             [
                 (r.doc_path, "", r.heading, i, r.text, vecs[i].astype(np.float32).tobytes())
-                for i, r in enumerate(rows, start=1)
+                for i, r in enumerate(rows)
             ],
         )
         self._conn.commit()

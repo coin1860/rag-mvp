@@ -41,7 +41,7 @@ class Settings:
     db_path: Path = Path(os.environ.get("RAG_DB_PATH", str(ROOT / "data" / "index.db")))
 
     top_k: int = int(os.environ.get("RAG_TOP_K", "4"))
-    min_score: float = float(os.environ.get("RAG_MIN_SCORE", "0.35"))
+    min_score: float = float(os.environ.get("RAG_MIN_SCORE", "0.40"))
     max_chars: int = int(os.environ.get("RAG_MAX_CHARS", "600"))
     overlap: int = int(os.environ.get("RAG_OVERLAP", "80"))
     timeout: float = float(os.environ.get("RAG_TIMEOUT", "90"))

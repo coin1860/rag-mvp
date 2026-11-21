@@ -94,6 +94,9 @@ def main() -> int:
             ("退款多久到账", False, "退款"),
             ("How much does the Pro plan cost", False, None),
             ("火星上的重力加速度是多少", True, None),
+            # regression for the measured leak: this scored 0.523, ABOVE the
+            # answerable English question, so only the model gate can refuse it.
+            ("如何给 PDF 加密", True, None),
         ]
         for q, want_refused, want_path in questions:
             resp = httpx.post(f"{base}/ask", json={"question": q}, timeout=120)
