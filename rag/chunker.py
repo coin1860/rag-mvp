@@ -38,8 +38,13 @@ def _blocks(text: str) -> list[Block]:
             blocks.append(Block(heading=heading, body=body))
         buf.clear()
 
+    in_fence = False
     for line in text.splitlines():
-        m = _HEADING.match(line)
+        if line.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+            buf.append(line)
+            continue
+        m = None if in_fence else _HEADING.match(line)
         if m:
             flush()
             level, title = len(m.group(1)), m.group(2).strip()
@@ -84,6 +89,11 @@ def _windows(body: str, max_chars: int, overlap: int) -> list[str]:
 
 
 def chunk_markdown(text: str, *, max_chars: int = 600, overlap: int = 80) -> list[Chunk]:
+    if max_chars <= 0:
+        raise ValueError("max_chars must be positive")
+    # A window that does not advance never terminates: clamp instead of hanging
+    # /reindex on a bad RAG_OVERLAP value.
+    overlap = max(0, min(overlap, max_chars - 1))
     chunks: list[Chunk] = []
     for block in _blocks(text):
         for piece in _windows(block.body, max_chars, overlap):

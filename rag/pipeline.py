@@ -97,7 +97,10 @@ class Rag:
                         text=chunk.text,
                     )
                 )
-                texts.append(chunk.text)
+                # The heading carries retrieval signal ("团队版 > 单点登录") that
+                # a text-only vector cannot see; it stays out of the stored text
+                # so the prompt still shows the raw passage.
+                texts.append(f"{chunk.heading}\n{chunk.text}" if chunk.heading else chunk.text)
 
         if rows:
             self.store.add(rows, self.embedder.embed_documents(texts))
@@ -119,19 +122,26 @@ class Rag:
         top = hits[0].score
         if top < self.min_score:
             return Answer(
-                f"知识库里没有相关内容（最高相似度 {top:.2f}，低于阈值 {self.min_score:.2f}）。",
+                f"知识库里没有相关内容（最高相似度 {top:.3f}，低于阈值 {self.min_score:.2f}）。",
                 [],
                 True,
                 top,
             )
 
+        # The gate above decides whether the question is in scope at all; it must
+        # NOT also filter the evidence. Reusing min_score here deleted the chunk
+        # that actually answered the question ("团队版有没有单点登录": the Team
+        # chunk scores 0.482, below the 0.50 gate, so the model was shown only
+        # wrong material and correctly refused an answerable question).
         sources = [
             Source(n=i, path=h.doc_path, heading=h.heading, score=round(h.score, 3), snippet=h.text[:180])
             for i, h in enumerate(hits, start=1)
-            if h.score >= self.min_score
         ]
+        # The model gets the whole passage; `snippet` (180 chars) exists only for
+        # the UI. Truncating the evidence silently deleted the sentence that
+        # answered the question: the Team SSO fact sits past char 180.
         material = "\n\n".join(
-            f"[{s.n}] {s.path}" + (f"#{s.heading}" if s.heading else "") + f"\n{s.snippet}"
+            f"[{s.n}] {s.path}" + (f"#{s.heading}" if s.heading else "") + f"\n{hits[s.n - 1].text}"
             for s in sources
         )
         text = self.llm.chat(
@@ -140,6 +150,8 @@ class Rag:
                 {"role": "user", "content": f"材料：\n{material}\n\n问题：{question}"},
             ]
         )
-        if NO_CONTEXT in text:
+        # Match the sentinel as a leading token, not a substring: a grounded
+        # answer that merely quotes the rule must not be discarded.
+        if text.strip().upper().startswith(NO_CONTEXT):
             return Answer("知识库里没有相关内容（检索到的材料不足以回答这个问题）。", [], True, top)
         return Answer(text, sources, False, top)

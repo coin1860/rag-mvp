@@ -118,6 +118,10 @@ def main() -> int:
             for s in data["sources"]:
                 print(f"  [{s['n']}] {s['path']}#{s['heading']} score={s['score']}")
             cited = [int(n) for n in re.findall(r"\[(\d+)\]", data["answer"])]
+            if data["refused"] is False:
+                # An empty citation list vacuously satisfies "all in range", so an
+                # app that never cites anything would pass. Require at least one.
+                check(f"answer cites at least one source ({q})", len(cited) > 0, f"cited={cited}")
             check(f"cited [n] within range ({q})", all(1 <= n <= len(data["sources"]) for n in cited),
                   f"cited={cited} nsources={len(data['sources'])}")
         return finish()

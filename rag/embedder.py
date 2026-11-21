@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import numpy as np
 
-# bge-*-zh-* recommends this prefix for short queries, never for passages.
-QUERY_PREFIX = "为这个句子生成表示以用于检索相关文章："
+# bge-*-zh-* documents this prefix for short queries. Ablated on this corpus it
+# lowered every score and demoted a correct top hit (客服几点上班: 0.554 -> 0.665
+# without it; the English question 0.483 -> 0.606), so it is off. Re-measure
+# before turning it back on: it is model- and corpus-dependent, not universal.
+QUERY_PREFIX = ""
 
 
 class Embedder:

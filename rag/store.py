@@ -8,6 +8,7 @@ removes an entire dependency.
 from __future__ import annotations
 
 import sqlite3
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,7 +48,10 @@ class Store:
     def __init__(self, db_path: Path | str) -> None:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self.db_path)
+        # FastAPI runs sync endpoints on a threadpool, so one Store is used from
+        # many threads. Serialise access instead of leaking ProgrammingError.
+        self._lock = threading.RLock()
+        self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._conn.executescript(SCHEMA)
         self._conn.commit()
         self._matrix: np.ndarray | None = None
@@ -55,27 +59,33 @@ class Store:
 
     # -- writes ---------------------------------------------------------
     def reset(self) -> None:
-        self._conn.execute("DELETE FROM chunks")
-        self._conn.commit()
-        self._matrix, self._rows = None, []
+        with self._lock:
+            self._conn.execute("DELETE FROM chunks")
+            self._conn.commit()
+            self._matrix, self._rows = None, []
 
     def add(self, rows: list[Row], vecs: np.ndarray) -> None:
         assert len(rows) == len(vecs), "one vector per row"
-        self._conn.executemany(
-            "INSERT INTO chunks (doc_path, doc_hash, heading, ord, text, vec)"
-            " VALUES (?,?,?,?,?,?)",
-            [
-                (r.doc_path, "", r.heading, i, r.text, vecs[i].astype(np.float32).tobytes())
-                for i, r in enumerate(rows)
-            ],
-        )
-        self._conn.commit()
-        self._matrix, self._rows = None, []
+        with self._lock:
+            self._conn.executemany(
+                "INSERT INTO chunks (doc_path, doc_hash, heading, ord, text, vec)"
+                " VALUES (?,?,?,?,?,?)",
+                [
+                    (r.doc_path, "", r.heading, i, r.text, vecs[i].astype(np.float32).tobytes())
+                    for i, r in enumerate(rows)
+                ],
+            )
+            self._conn.commit()
+            self._matrix, self._rows = None, []
 
     # -- reads ----------------------------------------------------------
     def _load(self) -> None:
         if self._matrix is not None:
             return
+        with self._lock:
+            self._load_locked()
+
+    def _load_locked(self) -> None:
         cur = self._conn.execute("SELECT id, doc_path, heading, text, vec FROM chunks ORDER BY id")
         rows: list[Row] = []
         vecs: list[np.ndarray] = []
@@ -87,11 +97,13 @@ class Store:
 
     @property
     def size(self) -> int:
-        return int(self._conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
+        with self._lock:
+            return int(self._conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
 
     def documents(self) -> list[str]:
-        cur = self._conn.execute("SELECT DISTINCT doc_path FROM chunks ORDER BY doc_path")
-        return [r[0] for r in cur]
+        with self._lock:
+            cur = self._conn.execute("SELECT DISTINCT doc_path FROM chunks ORDER BY doc_path")
+            return [r[0] for r in cur]
 
     def dim(self) -> int | None:
         self._load()
