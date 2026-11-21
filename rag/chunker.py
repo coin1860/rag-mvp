@@ -38,8 +38,13 @@ def _blocks(text: str) -> list[Block]:
             blocks.append(Block(heading=heading, body=body))
         buf.clear()
 
+    in_fence = False
     for line in text.splitlines():
-        m = _HEADING.match(line)
+        if line.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+            buf.append(line)
+            continue
+        m = None if in_fence else _HEADING.match(line)
         if m:
             flush()
             level, title = len(m.group(1)), m.group(2).strip()
@@ -51,6 +56,20 @@ def _blocks(text: str) -> list[Block]:
             buf.append(line)
     flush()
     return blocks
+
+
+def _sentence_cut(para: str, max_chars: int) -> int:
+    """Where to cut: prefer a Chinese full stop, then an English sentence end.
+
+    Only accept a boundary in the second half, so a window never degenerates
+    into tiny pieces; otherwise cut at the limit.
+    """
+    floor = max_chars // 2
+    for marker, width in (("。", 1), (". ", 2)):
+        at = para.rfind(marker, 0, max_chars)
+        if at > floor:
+            return at + width
+    return max_chars
 
 
 def _windows(body: str, max_chars: int, overlap: int) -> list[str]:
@@ -70,11 +89,7 @@ def _windows(body: str, max_chars: int, overlap: int) -> list[str]:
             pieces.append(current)
         current = ""
         while len(para) > max_chars:
-            cut = para.rfind("。", 0, max_chars)
-            cut = cut + 1 if cut > max_chars // 2 else para.rfind(". ", 0, max_chars)
-            cut = cut + 2 if cut > max_chars // 2 and not para[:cut].endswith("。") else cut
-            if cut <= max_chars // 2:
-                cut = max_chars
+            cut = _sentence_cut(para, max_chars)
             pieces.append(para[:cut].strip())
             para = para[max(0, cut - overlap) :].strip()
         current = para
@@ -84,6 +99,11 @@ def _windows(body: str, max_chars: int, overlap: int) -> list[str]:
 
 
 def chunk_markdown(text: str, *, max_chars: int = 600, overlap: int = 80) -> list[Chunk]:
+    if max_chars <= 0:
+        raise ValueError("max_chars must be positive")
+    # A window that does not advance never terminates: clamp instead of hanging
+    # /reindex on a bad RAG_OVERLAP value.
+    overlap = max(0, min(overlap, max_chars - 1))
     chunks: list[Chunk] = []
     for block in _blocks(text):
         for piece in _windows(block.body, max_chars, overlap):

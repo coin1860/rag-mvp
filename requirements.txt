@@ -1,0 +1,8 @@
+# runtime
+fastembed==0.9.1            # ONNX embeddings, CPU, no API key
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+httpx==0.28.1               # used by scripts/verify.py
+
+# dev
+pytest==9.2.0

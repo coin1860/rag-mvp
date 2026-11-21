@@ -1,16 +1,20 @@
 """Local embedding model: fastembed (ONNX, CPU, no API key).
 
-Documents are embedded as-is; queries get the bge Chinese instruction prefix,
-which the model was trained with. Getting this backwards silently degrades
-recall, so both paths go through this class and nowhere else.
+Documents and queries are embedded the same way: no instruction prefix. bge-zh
+documents one for queries, but it was ablated here and lowered every score
+(see QUERY_PREFIX), so both paths are symmetric. Both go through this class so
+the choice cannot drift between indexing and querying.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-# bge-*-zh-* recommends this prefix for short queries, never for passages.
-QUERY_PREFIX = "为这个句子生成表示以用于检索相关文章："
+# bge-*-zh-* documents this prefix for short queries. Ablated on this corpus it
+# lowered every score and demoted a correct top hit (客服几点上班: 0.554 -> 0.665
+# without it; the English question 0.483 -> 0.606), so it is off. Re-measure
+# before turning it back on: it is model- and corpus-dependent, not universal.
+QUERY_PREFIX = ""
 
 
 class Embedder:
@@ -27,9 +31,13 @@ class Embedder:
         return self._model
 
     @property
+    def loaded(self) -> bool:
+        return self._model is not None
+
+    @property
     def dim(self) -> int:
         if self._dim is None:
-            self._dim = int(self.embed(["dimension probe"]).shape[1])
+            self._dim = int(self.embed_documents(["dimension probe"]).shape[1])
         return self._dim
 
     def _encode(self, texts: list[str]) -> np.ndarray:

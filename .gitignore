@@ -1,5 +1,7 @@
 .venv/
-data/*.db
-data/*.npz
 __pycache__/
+.pytest_cache/
+.DS_Store
 .env
+data/index.db
+data/*.npz

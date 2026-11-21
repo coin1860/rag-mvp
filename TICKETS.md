@@ -84,3 +84,10 @@
 T1 → T2 → T3 → T5（T4 可并行）→ T6 → T7
 
 共享写：`rag/store.py` 与 `rag/pipeline.py` 不能并行改。
+
+---
+
+## T8（未做，v2）跨语言召回
+
+`Check:` 中文问「团队版有没有单点登录」返回 `refused=False` 且来源含 `pricing.md#Team Plan`。
+现状：答案块 rank 10/22，`top_k=6` 取不到，模型拒答。候选解法：换 `bge-m3`（1024 维、多语言、本地 onnx 或硅基流动免费 API）或加一层字面检索混合。**不要**用调大 `top_k` 解决。

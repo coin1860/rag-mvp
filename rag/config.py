@@ -30,7 +30,7 @@ _load_env(ROOT / ".env")
 @dataclass(frozen=True)
 class Settings:
     # generation: the agent2api gateway (OpenAI compatible)
-    base_url: str = os.environ.get("RAG_BASE_URL", "http://192.168.2.4:3065/v1")
+    base_url: str = os.environ.get("RAG_BASE_URL", "http://localhost:8080/v1")
     api_key: str = os.environ.get("RAG_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
     model: str = os.environ.get("RAG_MODEL", "deepseek-v4.1-flash")
 
@@ -40,8 +40,8 @@ class Settings:
     docs_dir: Path = Path(os.environ.get("RAG_DOCS_DIR", str(ROOT / "docs")))
     db_path: Path = Path(os.environ.get("RAG_DB_PATH", str(ROOT / "data" / "index.db")))
 
-    top_k: int = int(os.environ.get("RAG_TOP_K", "4"))
-    min_score: float = float(os.environ.get("RAG_MIN_SCORE", "0.35"))
+    top_k: int = int(os.environ.get("RAG_TOP_K", "6"))
+    min_score: float = float(os.environ.get("RAG_MIN_SCORE", "0.50"))
     max_chars: int = int(os.environ.get("RAG_MAX_CHARS", "600"))
     overlap: int = int(os.environ.get("RAG_OVERLAP", "80"))
     timeout: float = float(os.environ.get("RAG_TIMEOUT", "90"))
