@@ -37,7 +37,7 @@ class Embedder:
     @property
     def dim(self) -> int:
         if self._dim is None:
-            self._dim = int(self.embed(["dimension probe"]).shape[1])
+            self._dim = int(self.embed_documents(["dimension probe"]).shape[1])
         return self._dim
 
     def _encode(self, texts: list[str]) -> np.ndarray:
